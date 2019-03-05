@@ -347,6 +347,53 @@ def _delete_connection_callback(src_object, result, user_data):
             'dev={}, error=unknown'.format(devname))
 
 
+def delete_device(nmdev):
+    mainloop = nmclient.mainloop()
+    devpath = nmdev.get_path()
+    mainloop.push_action(_safe_delete_device_async, devpath)
+
+
+def _safe_delete_device_async(devpath):
+    mainloop = nmclient.mainloop()
+    client = nmclient.client()
+    nmdev = client.get_device_by_path(devpath)
+    logging.debug('#### delete %s/%s', devpath, nmdev)
+    if not nmdev:
+        # No callback is expected, so we should call the next one.
+        mainloop.execute_next_action()
+        return
+
+    user_data = mainloop, nmdev
+    nmdev.delete_async(
+        mainloop.cancellable,
+        _delete_device_callback,
+        user_data,
+    )
+
+
+def _delete_device_callback(src_object, result, user_data):
+    mainloop, nmdev = user_data
+    try:
+        success = src_object.delete_finish(result)
+    except Exception as e:
+        if mainloop.is_action_canceled(e):
+            logging.debug('Device deletion aborted on %s: error=%s',
+                          nmdev.get_iface(), e)
+        else:
+            mainloop.quit(
+                'Device deletion failed on {}: error={}'.format(
+                    nmdev.get_iface(), e))
+        return
+
+    devname = src_object.get_interface_name()
+    if success:
+        logging.debug('Device deletion succeeded: dev=%s', devname)
+        mainloop.execute_next_action()
+    else:
+        mainloop.quit(
+            'Device deletion failed: dev={}, error=unknown'.format(devname))
+
+
 def get_device_by_name(devname):
     client = nmclient.client()
     return client.get_device_by_iface(devname)
