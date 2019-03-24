@@ -16,6 +16,7 @@
 #
 
 from contextlib import contextmanager
+import logging
 from operator import itemgetter
 
 import collections
@@ -48,6 +49,16 @@ def _apply_ifaces_state(interfaces_desired_state, verify_change):
     ifaces_desired_state = _index_by_name(interfaces_desired_state)
     ifaces_current_state = _index_by_name(netinfo.interfaces())
 
+    # Filter unchanged interfaces and remove them from the desired state.
+    unchanged_ifaces = [
+        ifname for ifname in (six.viewkeys(ifaces_desired_state) &
+                              six.viewkeys(ifaces_current_state))
+        if is_subset_of({ifname: ifaces_desired_state[ifname]},
+                        {ifname: ifaces_current_state[ifname]})
+    ]
+    for iface in unchanged_ifaces:
+        ifaces_desired_state.pop(iface)
+
     ifaces_desired_state = sanitize_ethernet_state(ifaces_desired_state,
                                                    ifaces_current_state)
     ifaces_desired_state = sanitize_dhcp_state(ifaces_desired_state)
@@ -63,8 +74,9 @@ def _apply_ifaces_state(interfaces_desired_state, verify_change):
             _verify_change(ifaces_desired_state)
 
 
-def _verify_change(ifaces_desired_state):
-    ifaces_current_state = _index_by_name(netinfo.interfaces())
+def _verify_change(ifaces_desired_state, ifaces_current_state=None):
+    if not ifaces_current_state:
+        ifaces_current_state = _index_by_name(netinfo.interfaces())
     ifaces_desired_state = _remove_absent_iface_entries(
         ifaces_desired_state)
     ifaces_desired_state = _remove_down_virt_iface_entries(
@@ -297,6 +309,8 @@ def _edit_interfaces(ifaces_desired_state, ifaces_current_state):
         six.viewkeys(ifaces_desired_state) & six.viewkeys(ifaces_current_state)
     ]
 
+    logging.debug('###### ifaces2edit: %s', ifaces2edit)
+
     validator.verify_interfaces_state(ifaces2edit, ifaces_desired_state)
 
     iface2prepare = list(
@@ -436,3 +450,50 @@ def _sort_ip_addresses(desired_state, current_state):
         for family in ('ipv4', 'ipv6'):
             state.get(family, {}).get('address', []).sort(key=itemgetter('ip'))
     return desired_state, current_state
+
+
+# def is_dict_subset_of(subset_data, set_data):
+#     """
+#     Recursevely check if subset_data is included in the set_data (dicts).
+#     Entries of type list, tuple and set are not checked recursively.
+#     """
+#     is_subset = True
+#     for key, val in six.viewitems(subset_data):
+#         if isinstance(val, collections.Mapping):
+#             is_subset = is_dict_subset_of(val, set_data.get(key, {}))
+#         elif isinstance(val, collections.Sequence):
+#             is_subset = sorted(val) <= sorted(set_data.get(key, []))
+#         elif isinstance(val, collections.Set):
+#             is_subset = val <= set_data.get(key, set())
+#         else:
+#             is_subset = subset_data[key] == val
+#
+#         if not is_subset:
+#             break
+#
+#     return is_subset
+
+
+def is_subset_of(subset_data, superset_data):
+    subset = copy.deepcopy(subset_data)
+    superset = copy.deepcopy(superset_data)
+
+    if not (set(subset) <= set(superset)):
+        return False
+
+    for ifname in subset:
+        superset_val = superset[ifname]
+        subset_val = _canonicalize_desired_state(subset[ifname], superset_val)
+        subset_val, superset_val = _sort_lag_slaves(subset_val, superset_val)
+        subset_val, superset_val = _sort_bridge_ports(subset_val, superset_val)
+        subset_val, superset_val = _canonicalize_ipv6_state(
+            subset_val, superset_val)
+        subset_val, superset_val = _remove_iface_ipv6_link_local_addr(
+            subset_val, superset_val)
+        superset_val = sanitize_dhcp_state({ifname: superset_val})[ifname]
+        subset_val, superset_val = _sort_ip_addresses(subset_val, superset_val)
+
+        if subset_val != superset_val:
+            return False
+
+    return True
