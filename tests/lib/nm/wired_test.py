@@ -29,7 +29,7 @@ def NM_mock():
 
 
 def test_create_setting_None(NM_mock):
-    setting = nm.wired.create_setting({}, None)
+    setting = nm.wired.create_setting({}, {}, None)
     assert setting is None
 
 
@@ -37,6 +37,7 @@ def test_create_setting_duplicate(NM_mock):
     base_profile = mock.MagicMock()
 
     setting = nm.wired.create_setting({'ethernet': {'speed': 1000}},
+                                      {},
                                       base_profile)
     assert setting == \
         base_profile.get_setting_wired.return_value.duplicate.return_value
@@ -44,13 +45,13 @@ def test_create_setting_duplicate(NM_mock):
 
 def test_create_setting_mac(NM_mock):
     setting = nm.wired.create_setting(
-        {'mac-address': '01:23:45:67:89:ab'}, None)
+        {'mac-address': '01:23:45:67:89:ab'}, {}, None)
     assert setting == NM_mock.SettingWired.new.return_value
     assert setting.props.cloned_mac_address == '01:23:45:67:89:ab'
 
 
 def test_create_setting_mtu(NM_mock):
-    setting = nm.wired.create_setting({'mtu': 1500}, None)
+    setting = nm.wired.create_setting({'mtu': 1500}, {}, None)
     assert setting == NM_mock.SettingWired.new.return_value
     assert setting.props.mtu == 1500
 
@@ -61,6 +62,7 @@ def test_create_setting_mtu(NM_mock):
 def test_create_setting_auto_negotiation_False(ethtool_mock, NM_mock):
     setting = nm.wired.create_setting(
         {'name': 'nmstate_test', 'ethernet': {'auto-negotiation': False}},
+        {},
         None)
     assert setting == NM_mock.SettingWired.new.return_value
     assert setting.props.auto_negotiate is False
@@ -71,7 +73,7 @@ def test_create_setting_auto_negotiation_False(ethtool_mock, NM_mock):
 
 def test_create_setting_only_auto_negotiation_True(NM_mock):
     setting = nm.wired.create_setting({'ethernet':
-                                      {'auto-negotiation': True}}, None)
+                                      {'auto-negotiation': True}}, {}, None)
     assert setting == NM_mock.SettingWired.new.return_value
     assert setting.props.auto_negotiate is True
     assert setting.props.speed == 0
@@ -81,7 +83,7 @@ def test_create_setting_only_auto_negotiation_True(NM_mock):
 def test_create_setting_auto_negotiation_speed_duplex(NM_mock):
     setting = nm.wired.create_setting({'ethernet': {'auto-negotiation': True,
                                                     'speed': 1000, 'duplex':
-                                                    'full'}}, None)
+                                                    'full'}}, {}, None)
     assert setting == NM_mock.SettingWired.new.return_value
     assert setting.props.auto_negotiate is True
     assert setting.props.speed == 1000
@@ -91,6 +93,7 @@ def test_create_setting_auto_negotiation_speed_duplex(NM_mock):
 def test_create_setting_speed_duplex(NM_mock):
     setting = nm.wired.create_setting({'ethernet': {'speed': 1000,
                                                     'duplex': 'full'}},
+                                      {},
                                       None)
     assert setting == NM_mock.SettingWired.new.return_value
     assert setting.props.speed == 1000

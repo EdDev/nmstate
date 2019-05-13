@@ -61,6 +61,7 @@ def _create_iface_settings(wired_state, con_profile):
     con_setting.import_by_profile(con_profile)
 
     wired_setting = nm.wired.create_setting(wired_state,
+                                            {},
                                             con_profile.profile)
     ipv4_setting = nm.ipv4.create_setting({}, None)
     ipv6_setting = nm.ipv6.create_setting({}, None)

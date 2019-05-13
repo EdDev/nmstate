@@ -42,7 +42,7 @@ def create_new_ifaces(con_profiles):
 
 def prepare_new_ifaces_configuration(ifaces_desired_state):
     return [
-        _build_connection_profile(iface_desired_state)
+        _build_connection_profile(iface_desired_state, iface_current_state={})
         for iface_desired_state in ifaces_desired_state
     ]
 
@@ -62,20 +62,25 @@ def edit_existing_ifaces(con_profiles):
             connection_profile.add(save_to_disk=True)
 
 
-def prepare_edited_ifaces_configuration(ifaces_desired_state):
+def prepare_edited_ifaces_configuration(ifaces_desired_state,
+                                        ifaces_current_state):
     con_profiles = []
 
     for iface_desired_state in ifaces_desired_state:
-        nmdev = device.get_device_by_name(iface_desired_state['name'])
+        ifname = iface_desired_state['name']
+        nmdev = device.get_device_by_name(ifname)
         cur_con_profile = None
         if nmdev:
             cur_con_profile = connection.ConnectionProfile()
             cur_con_profile.import_by_device(nmdev)
         new_con_profile = _build_connection_profile(
-            iface_desired_state, base_con_profile=cur_con_profile)
+            iface_desired_state,
+            base_con_profile=cur_con_profile,
+            iface_current_state=ifaces_current_state.get(ifname, {})
+        )
         if not new_con_profile.devname:
             set_conn = new_con_profile.profile.get_setting_connection()
-            set_conn.props.interface_name = iface_desired_state['name']
+            set_conn.props.interface_name = ifname
         if cur_con_profile and cur_con_profile.profile:
             cur_con_profile.update(new_con_profile)
             con_profiles.append(cur_con_profile)
@@ -246,7 +251,9 @@ def _create_ovs_port_iface_desired_state(iface_desired_state, port_options):
     }
 
 
-def _build_connection_profile(iface_desired_state, base_con_profile=None):
+def _build_connection_profile(iface_desired_state,
+                              iface_current_state,
+                              base_con_profile=None):
     iface_type = translator.Api2Nm.get_iface_type(iface_desired_state['type'])
 
     base_profile = base_con_profile.profile if base_con_profile else None
@@ -271,7 +278,8 @@ def _build_connection_profile(iface_desired_state, base_con_profile=None):
     con_setting.set_master(master, master_type)
     settings.append(con_setting.setting)
 
-    wired_setting = wired.create_setting(iface_desired_state, base_profile)
+    wired_setting = wired.create_setting(
+        iface_desired_state, iface_current_state, base_profile)
     if wired_setting:
         settings.append(wired_setting)
 

@@ -61,10 +61,14 @@ class WiredSetting(object):
         )
 
 
-def create_setting(iface_state, base_con_profile):
-    setting = WiredSetting(iface_state)
+def create_setting(iface_desired_state, iface_current_state, base_con_profile):
+    setting = WiredSetting(iface_desired_state)
 
     nm_wired_setting = None
+
+    if setting == WiredSetting(iface_current_state):
+        return nm_wired_setting
+
     if base_con_profile:
         nm_wired_setting = base_con_profile.get_setting_wired()
         if nm_wired_setting:
@@ -89,15 +93,15 @@ def create_setting(iface_state, base_con_profile):
             nm_wired_setting.props.duplex = None
 
         elif not setting.speed:
-            ethtool_results = minimal_ethtool(str(iface_state['name']))
+            ethtool_results = minimal_ethtool(str(iface_desired_state['name']))
             setting.speed = ethtool_results['speed']
         elif not setting.duplex:
-            ethtool_results = minimal_ethtool(str(iface_state['name']))
+            ethtool_results = minimal_ethtool(str(iface_desired_state['name']))
             setting.duplex = ethtool_results['duplex']
 
     elif setting.auto_negotiation is False:
         nm_wired_setting.props.auto_negotiate = False
-        ethtool_results = minimal_ethtool(str(iface_state['name']))
+        ethtool_results = minimal_ethtool(str(iface_desired_state['name']))
         if not setting.speed:
             setting.speed = ethtool_results['speed']
         if not setting.duplex:
