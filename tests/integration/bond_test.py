@@ -36,6 +36,8 @@ from .testlib import assertlib
 from .testlib import statelib
 from .testlib.assertlib import assert_mac_address
 
+from .testlib.bridgelib import linux_bridge
+from .testlib.bridgelib import create_bridge_subtree_config
 
 BOND99 = 'bond99'
 
@@ -369,3 +371,10 @@ def test_bond_with_empty_ipv6_static_address(eth1_up):
         assertlib.assert_state(bond_state)
 
     assertlib.assert_absent('bond99')
+
+
+def test_create_linux_bridge_over_bond(bond99_with_slave):
+    bridge_name = 'linux-br0'
+    bridge_state = create_bridge_subtree_config((BOND99,))
+    with linux_bridge(bridge_name, bridge_state) as desired_state:
+        assertlib.assert_state(desired_state)

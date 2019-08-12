@@ -26,6 +26,28 @@ from libnmstate.schema import InterfaceState
 from libnmstate.schema import InterfaceType
 from libnmstate.schema import LinuxBridge
 
+import yaml
+
+
+BRIDGE_OPTIONS_YAML = """
+options:
+  group-forward-mask: 0
+  mac-ageing-time: 300
+  multicast-snooping: true
+  stp:
+    enabled: true
+    forward-delay: 15
+    hello-time: 2
+    max-age: 20
+    priority: 32768
+"""
+
+BRIDGE_PORT_YAML = """
+stp-hairpin-mode: false
+stp-path-cost: 100
+stp-priority: 32
+"""
+
 
 @contextmanager
 def linux_bridge(name, bridge_subtree_state, extra_iface_state=None):
@@ -82,3 +104,13 @@ def create_bridge_subtree_state(options_state=None):
             LinuxBridge.STP_SUBTREE: {LinuxBridge.STP_ENABLED: False}
         }
     return {LinuxBridge.OPTIONS_SUBTREE: options_state}
+
+
+def create_bridge_subtree_config(port_names):
+    bridge_state = yaml.load(BRIDGE_OPTIONS_YAML, Loader=yaml.SafeLoader)
+
+    for port in port_names:
+        port_state = yaml.load(BRIDGE_PORT_YAML, Loader=yaml.SafeLoader)
+        add_port_to_bridge(bridge_state, port, port_state)
+
+    return bridge_state

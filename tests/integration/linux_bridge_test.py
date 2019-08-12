@@ -35,6 +35,7 @@ from .testlib.iproutelib import ip_monitor_assert_stable_link_up
 from .testlib.statelib import show_only
 from .testlib.assertlib import assert_mac_address
 from .testlib.vlan import vlan_interface
+from .testlib.bridgelib import create_bridge_subtree_config
 
 TEST_BRIDGE0 = 'linux-br0'
 
@@ -63,7 +64,7 @@ stp-priority: 32
 def bridge0_with_port0(port0_up):
     bridge_name = TEST_BRIDGE0
     port_name = port0_up[Interface.KEY][0][Interface.NAME]
-    bridge_state = _create_bridge_subtree_config((port_name,))
+    bridge_state = create_bridge_subtree_config((port_name,))
     # Disable STP to avoid topology changes and the consequence link change.
     options_subtree = bridge_state[LinuxBridge.OPTIONS_SUBTREE]
     options_subtree[LinuxBridge.STP_SUBTREE][LinuxBridge.STP_ENABLED] = False
@@ -97,7 +98,7 @@ def test_create_and_remove_linux_bridge_with_min_desired_state():
 def test_create_and_remove_linux_bridge_with_one_port(port0_up):
     bridge_name = TEST_BRIDGE0
     port_name = port0_up[Interface.KEY][0][Interface.NAME]
-    bridge_state = _create_bridge_subtree_config((port_name,))
+    bridge_state = create_bridge_subtree_config((port_name,))
     with linux_bridge(bridge_name, bridge_state) as desired_state:
 
         assertlib.assert_state(desired_state)
@@ -109,7 +110,7 @@ def test_create_and_remove_linux_bridge_with_two_ports(port0_up, port1_up):
     bridge_name = TEST_BRIDGE0
     port0_name = port0_up[Interface.KEY][0][Interface.NAME]
     port1_name = port1_up[Interface.KEY][0][Interface.NAME]
-    bridge_state = _create_bridge_subtree_config((port0_name, port1_name))
+    bridge_state = create_bridge_subtree_config((port0_name, port1_name))
 
     with linux_bridge(bridge_name, bridge_state) as desired_state:
         assertlib.assert_state(desired_state)
@@ -152,7 +153,7 @@ def test_remove_bridge_and_keep_slave_up(bridge0_with_port0, port0_up):
 def test_create_vlan_as_slave_of_linux_bridge(port0_vlan101):
     bridge_name = TEST_BRIDGE0
     port_name = port0_vlan101[Interface.KEY][0][Interface.NAME]
-    bridge_state = _create_bridge_subtree_config((port_name,))
+    bridge_state = create_bridge_subtree_config((port_name,))
     with linux_bridge(bridge_name, bridge_state) as desired_state:
         assertlib.assert_state(desired_state)
 
@@ -189,7 +190,7 @@ def test_linux_bridge_uses_the_port_mac(port0_up, bridge0_with_port0):
 def test_add_linux_bridge_with_empty_ipv6_static_address(port0_up):
     bridge_name = TEST_BRIDGE0
     port_name = port0_up[Interface.KEY][0][Interface.NAME]
-    bridge_state = _create_bridge_subtree_config((port_name,))
+    bridge_state = create_bridge_subtree_config((port_name,))
     # Disable STP to avoid topology changes and the consequence link change.
     options_subtree = bridge_state[LinuxBridge.OPTIONS_SUBTREE]
     options_subtree[LinuxBridge.STP_SUBTREE][LinuxBridge.STP_ENABLED] = False
@@ -212,7 +213,7 @@ def test_add_linux_bridge_with_empty_ipv6_static_address(port0_up):
 def test_add_linux_bridge_with_empty_ipv6_static_address_with_stp(port0_up):
     bridge_name = TEST_BRIDGE0
     port_name = port0_up[Interface.KEY][0][Interface.NAME]
-    bridge_state = _create_bridge_subtree_config((port_name,))
+    bridge_state = create_bridge_subtree_config((port_name,))
     options_subtree = bridge_state[LinuxBridge.OPTIONS_SUBTREE]
     options_subtree[LinuxBridge.STP_SUBTREE][LinuxBridge.STP_ENABLED] = True
 
@@ -249,7 +250,7 @@ def test_replace_port_on_linux_bridge(port0_vlan101, port1_up):
     bridge_name = TEST_BRIDGE0
     vlan_port0_name = port0_vlan101[Interface.KEY][0][Interface.NAME]
     port1_name = port1_up[Interface.KEY][0][Interface.NAME]
-    bridge_state = _create_bridge_subtree_config((vlan_port0_name,))
+    bridge_state = create_bridge_subtree_config((vlan_port0_name,))
     with linux_bridge(bridge_name, bridge_state) as state:
         brconf_state = state[Interface.KEY][0][LinuxBridge.CONFIG_SUBTREE]
         brconf_state[LinuxBridge.PORT_SUBTREE] = [
@@ -272,13 +273,3 @@ def test_replace_port_on_linux_bridge(port0_vlan101, port1_up):
 def _add_port_to_bridge(bridge_state, ifname):
     port_state = yaml.load(BRIDGE_PORT_YAML, Loader=yaml.SafeLoader)
     add_port_to_bridge(bridge_state, ifname, port_state)
-
-
-def _create_bridge_subtree_config(port_names):
-    bridge_state = yaml.load(BRIDGE_OPTIONS_YAML, Loader=yaml.SafeLoader)
-
-    for port in port_names:
-        port_state = yaml.load(BRIDGE_PORT_YAML, Loader=yaml.SafeLoader)
-        add_port_to_bridge(bridge_state, port, port_state)
-
-    return bridge_state
